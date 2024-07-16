@@ -22,7 +22,7 @@ class SnifferOptions:
         self.dataset_path: str = '../../datasets/TII-SSRC-23/pcap/'
         self.delay: bool = False
         self.session: bool = False
-        self.interface: str = 'ethint0'
+        self.interface: str = 'wlp0s5f0'
         self.timeout: int = 120
         self.cleaning_cycle: int = 60
         self.debug: bool = True
