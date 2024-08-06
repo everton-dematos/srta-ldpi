@@ -12,12 +12,14 @@ from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import pickle
 
 import data
 import plots
 from losses import OneClassContrastiveLoss
 from model import ResCNNContrastive
 from options import LDPIOptions
+from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 
 
 class ContrastivePretrainer:
@@ -199,7 +201,7 @@ class Trainer:
         loader = data.get_pretrain_dataloader(dataset='TII-SSRC-23', batch_size=self.args.batch_size, contrastive=False, shuffle=False, drop_last=False)
         self._init_center_c(loader)
 
-    def train(self, eta: float = 1.0, eps: float = 1e-10, per_validation: int = 5) -> NoReturn:
+    def train(self, eta: float = 1.0, eps: float = 1e-10, per_validation: int = 1) -> NoReturn:
         """
         Trains the model.
 
@@ -259,8 +261,14 @@ class Trainer:
         bin_labels_np = bin_labels.to('cpu').numpy()
         mult_labels_np = mult_labels.to('cpu').numpy()
 
+        # Compute AUC on the whole datasets (whole normal vs. whole malicious)
         auroc = plots.roc(scores_np, bin_labels_np, plot=False)
         results = {'auc': auroc}
+        
+        # Compute per class AUC (whole normal vs. subset of malicious where target label = malicious label)
+        str_labels = self.test_loader.dataset.str_labels
+        benign_label_range = self.test_loader.dataset.benign_label_range
+        multi_results = self.compute_multiclass_metrics(scores_np, bin_labels_np, mult_labels_np, str_labels, benign_label_range)
 
         bool_abnormal = bin_labels_np.astype(bool)
         bool_normal = ~bool_abnormal
@@ -292,6 +300,35 @@ class Trainer:
 
                 plots.plot_anomaly_score_dists(self.args.model_name, test_scores=plot_scores_np, labels=plot_bin_labels_np, name=name, threshold=threshold)
 
+        return results, multi_results
+
+    def compute_multiclass_metrics(self, scores_np, bin_labels_np, mult_labels_np, str_labels, benign_label_range):
+        results = {}
+        # Identify indices of normal samples
+        normal_indices = np.where(bin_labels_np == 0)[0]
+        normal_scores = scores_np[normal_indices]
+        
+        # Get unique attack types from the multi-label array
+        unique_labels = np.unique(mult_labels_np) 
+
+        # Calculate AUC-ROC for each type of attack compared to normal samples
+        for label in unique_labels:
+            if label in benign_label_range:
+                continue 
+
+            # Indices for the current attack type
+            attack_indices = np.where(mult_labels_np == label)[0]
+            attack_scores = scores_np[attack_indices]
+            
+            # Combine normal and attack scores
+            combined_scores = np.concatenate([normal_scores, attack_scores])
+            # Create binary labels array: 0 for normal, 1 for attack
+            combined_labels = np.concatenate([np.zeros(len(normal_scores)), np.ones(len(attack_scores))])
+            
+            # Compute AUC-ROC
+            auc_score = roc_auc_score(combined_labels, combined_scores)
+            results[str_labels[label]] = auc_score 
+                    
         return results
 
     def trace_and_measure_inference(self):
@@ -498,9 +535,26 @@ class Trainer:
         # Periodic testing
         if (epoch + 1) % per_validation == 0 or epoch < self.warmup_epochs:
             print("Validation for early stopping at epoch:", epoch + 1)
-            results = self.test(plot=False)
-            print(results)
+            results, multi_results = self.test(plot=False)
+            epoch_results = {
+                'epoch': epoch + 1,
+                'whole': results,
+                'per_class': multi_results
+            }
 
+            # Load existing results if the file exists, else initialize an empty dictionary
+            if os.path.exists('validation_results.pkl'):
+                with open('validation_results.pkl', 'rb') as f:
+                    all_epochs_results = pickle.load(f)
+            else:
+                all_epochs_results = {}
+
+            # Add the current epoch's results
+            all_epochs_results[epoch + 1] = epoch_results
+  
+            print(all_epochs_results[epoch + 1]['whole'])
+            print(all_epochs_results[epoch + 1]['per_class'])  
+            
             max_dr = results['max']['rec']
             separation_sccore = results['separation_score']
             print('max', max_dr)
@@ -514,6 +568,8 @@ class Trainer:
 
                 # Save the current model as the best model
                 self.best_model_state = self.model.state_dict().copy()
+                all_epochs_results['best_epoch'] = epoch + 1
+                
                 print("New best model found!")
 
                 # Save best model
@@ -530,6 +586,12 @@ class Trainer:
                 self.continue_warmup = True
             else:
                 self.continue_warmup = False
+            
+            # Save the updated results to the pickle file
+            with open('validation_results.pkl', 'wb') as f:
+                pickle.dump(all_epochs_results, f)
+
+        
 
     def _measure_inference_time(self, model: Module) -> Tuple[float, int]:
         """
@@ -573,8 +635,9 @@ def main() -> NoReturn:
     trainer.train()
 
     # Testing the trained model
-    results = trainer.test(plot=True)
+    results, multi_cls = trainer.test(plot=True)
     print("Test results:", results)
+    print("Per class results:", multi_cls)
 
     # Tracing and measuring inference before and after model tracing
     freq_pre_trace, freq_post_trace = trainer.trace_and_measure_inference()
