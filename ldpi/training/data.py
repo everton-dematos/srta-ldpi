@@ -29,7 +29,7 @@ class CustomDataset(Dataset):
         n_samples (int): Number of samples in the dataset.
     """
 
-    def __init__(self, samples: ArrayFloat, targets: ArrayInt, bin_targets: ArrayInt):
+    def __init__(self, samples: ArrayFloat, targets: ArrayInt, bin_targets: ArrayInt, str_labels : List[str], benign_label_range):
         """
         Initializes the CustomDataset with samples and targets.
 
@@ -42,6 +42,8 @@ class CustomDataset(Dataset):
         self.targets = targets
         self.bin_targets = bin_targets
         self.n_samples = samples.shape[0]
+        self.str_labels = str_labels
+        self.benign_label_range = benign_label_range
 
     def __getitem__(self, index: int) -> Tuple[ArrayFloat, ArrayFloat, ArrayFloat]:
         """
@@ -182,14 +184,17 @@ def load_data_from_folder(dataset_name: str, category: str, counter: int) -> Tup
     targets: List[ArrayInt] = []
 
     parent_path = os.path.join('samples', dataset_name, 'pcap', category)
+    str_labels = []
 
     # Loop through subdirectories
     for traffic_type in os.listdir(parent_path):
         traffic_path = os.path.join(parent_path, traffic_type)
-
+    
         for sub_traffic_type in os.listdir(traffic_path):
             sub_traffic_path = os.path.join(traffic_path, sub_traffic_type)
             print(sub_traffic_path, counter)
+            str_labels.append(sub_traffic_type)
+            
 
             folder_data: Optional[ArrayFloat] = None
             for file_name in os.listdir(sub_traffic_path):
@@ -207,7 +212,7 @@ def load_data_from_folder(dataset_name: str, category: str, counter: int) -> Tup
             targets.append(labels)
             counter += 1
 
-    return counter, samples, targets
+    return counter, samples, targets, str_labels
 
 
 def load_data(dataset: str, test_size: float = 0.20, only_normal: bool = False) -> Tuple[ArrayFloat, ArrayInt, ArrayInt, ArrayFloat, ArrayInt, ArrayInt]:
@@ -224,10 +229,11 @@ def load_data(dataset: str, test_size: float = 0.20, only_normal: bool = False) 
     """
     # Assuming load_data_from_folder is a function that loads the data
     # Replace with the actual data loading logic as necessary
-    label_counter, benign_data, benign_labels = load_data_from_folder(dataset, 'benign', counter=0)
-
+    label_counter, benign_data, benign_labels, str_labels_benign = load_data_from_folder(dataset, 'benign', counter=0)
+    
+    str_labels_malicious = None
     if not only_normal:
-        label_counter, malware_data, malware_labels = load_data_from_folder(dataset, 'malicious', counter=label_counter)
+        label_counter, malware_data, malware_labels, str_labels_malicious = load_data_from_folder(dataset, 'malicious', counter=label_counter)
         anomaly = np.concatenate(malware_data).astype(np.float32)
         anomaly_targets = np.concatenate(malware_labels).astype(int)
     else:
@@ -261,7 +267,14 @@ def load_data(dataset: str, test_size: float = 0.20, only_normal: bool = False) 
     test_targets = np.array(test['target'].tolist()).astype(int)
     test_bin_targets = np.array(test['bin_target'].tolist()).astype(int)
 
-    return train_samples, train_targets, train_bin_targets, test_samples, test_targets, test_bin_targets
+    if str_labels_malicious is not None:
+        str_labels = str_labels_benign + str_labels_malicious
+    else:
+        str_labels = str_labels_benign
+
+    benign_label_range = np.arange(len(str_labels_benign)) 
+
+    return train_samples, train_targets, train_bin_targets, test_samples, test_targets, test_bin_targets, str_labels, benign_label_range
 
 
 def get_training_dataloader(dataset: str, batch_size: int = 64) -> Tuple[DataLoaderType, DataLoaderType]:
@@ -275,12 +288,12 @@ def get_training_dataloader(dataset: str, batch_size: int = 64) -> Tuple[DataLoa
     Returns:
         Tuple[DataLoaderType, DataLoaderType]: Training and testing data loaders.
     """
-    train_samples, train_targets, train_bin_targets, test_samples, test_targets, test_bin_targets = load_data(dataset, only_normal=False)
+    train_samples, train_targets, train_bin_targets, test_samples, test_targets, test_bin_targets, str_labels, benign_label_range = load_data(dataset, only_normal=False)
     print(f'{train_samples.shape[0]} training samples')
     print(train_samples.shape, test_samples.shape)
 
-    train_ds = CustomDataset(train_samples, train_targets, train_bin_targets)
-    test_ds = CustomDataset(test_samples, test_targets, test_bin_targets)
+    train_ds = CustomDataset(train_samples, train_targets, train_bin_targets, str_labels, benign_label_range)
+    test_ds = CustomDataset(test_samples, test_targets, test_bin_targets, str_labels, benign_label_range)
 
     weights = make_weights_for_balanced_classes(train_bin_targets)
     sampler = WeightedRandomSampler(torch.DoubleTensor(weights), len(weights))
@@ -305,13 +318,13 @@ def get_pretrain_dataloader(dataset: str, batch_size: int, contrastive: bool = F
     Returns:
         DataLoaderType: Pretraining data loader.
     """
-    train_samples, train_targets, train_bin_targets, _, _, _ = load_data(dataset, test_size=0.0, only_normal=True)
+    train_samples, train_targets, train_bin_targets, _, _, _, str_labels, benign_label_range = load_data(dataset, test_size=0.0, only_normal=True)
     print(f'Pretraining with {train_samples.shape[0]} normal samples')
 
     if contrastive:
         train_ds = OneClassContrastiveDataset(train_samples, train_targets, train_bin_targets)
     else:
-        train_ds = CustomDataset(train_samples, train_targets, train_bin_targets)
+        train_ds = CustomDataset(train_samples, train_targets, train_bin_targets, str_labels, benign_label_range)
 
     pretrain_loader = DataLoader(dataset=train_ds, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, pin_memory=True)
 

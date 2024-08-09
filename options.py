@@ -71,8 +71,8 @@ class LDPIOptions:
 
     def __init__(self):
         # Initialize default values
-        self.n: int = 4  # Number of packets per sample (default: 4)
-        self.l: int = 60  # Size of each packet in the samples (default: 60)
+        self.n: int = 60  # Number of packets per sample (default: 4)
+        self.l: int = 100  # Size of each packet in the samples (default: 60)
 
         # Training related
         self.model_name: str = 'ResCNN'
