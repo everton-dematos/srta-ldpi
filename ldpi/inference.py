@@ -11,6 +11,8 @@ from ldpi.training.preprocessing import anonymize_packet, trim_or_pad_packet
 from options import LDPIOptions
 from utils import FlowKeyType, SnifferSubscriber, Color, flow_key_to_str
 
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TrainedModel:
     """
@@ -259,6 +261,7 @@ class LightDeepPacketInspection(SnifferSubscriber):
                 self.black_list.add(key[0])
                 print(Color.FAIL + f'Anomaly detected in flow {flow_key_to_str(key)}, LDPI blacklisted (ignoring packets from): {key[0]}' + Color.ENDC)
             else:
+                logging.info("Testing - logging python")
                 print(Color.OKGREEN + f'No anomaly detected in flow {flow_key_to_str(key)}' + Color.ENDC)
 
     def new_packet(self, flow_key: FlowKeyType, protocol: int, timestamp: int, ip: dpkt.ip.IP) -> NoReturn:
