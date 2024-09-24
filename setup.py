@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="srta-ldpi",
@@ -6,7 +6,10 @@ setup(
     description="Lightweight Deep Anomaly Detection for Network Traffic",
     long_description=open("README.md").read(),
     url="https://github.com/everton-dematos/srta-ldpi",
-    packages=find_packages(),
+    packages=[
+        "ldpi", 
+        "ldpi.training",  
+    ],
     py_modules=["main", "main_debug", "options", "utils"],
     install_requires=[
         'numpy',
@@ -19,7 +22,7 @@ setup(
         'tqdm',
         'cycler',
         'netifaces',
-        'systemd',  
+        'systemd',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
