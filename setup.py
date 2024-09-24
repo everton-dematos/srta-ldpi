@@ -9,6 +9,7 @@ setup(
     packages=[
         "ldpi", 
         "ldpi.training",  
+        "sniffer",  
     ],
     py_modules=["main", "main_debug", "options", "utils"],
     install_requires=[
