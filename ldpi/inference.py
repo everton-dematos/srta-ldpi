@@ -6,6 +6,7 @@ from typing import Dict, Set, Optional, Tuple, List, NoReturn
 import dpkt
 import numpy as np
 import torch
+from torch import Tensor
 
 from ldpi.training.preprocessing import anonymize_packet, trim_or_pad_packet
 from options import LDPIOptions
