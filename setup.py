@@ -25,11 +25,21 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires='>=3.11',
-    include_package_data=True,
+    include_package_data=True, 
     package_data={
         "ldpi.training": [
-            "output/ResCNN/*.pth"
+            "output/ResCNN/*.pth",
+            "output/ResCNN/plots/*.pdf",
         ],
     },
+    data_files=[
+        ('ldpi/training', ['ldpi/training/*.py']),
+        ('ldpi/training/output/ResCNN', [
+            'ldpi/training/output/ResCNN/*.pth'
+        ]),
+        ('ldpi/training/output/ResCNN/plots', [
+            'ldpi/training/output/ResCNN/plots/*.pdf'
+        ]),
+    ],
     zip_safe=False,
 )
