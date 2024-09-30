@@ -32,14 +32,5 @@ setup(
             "output/ResCNN/plots/*.pdf",
         ],
     },
-    data_files=[
-        ('ldpi/training', ['ldpi/training/*.py']),
-        ('ldpi/training/output/ResCNN', [
-            'ldpi/training/output/ResCNN/*.pth'
-        ]),
-        ('ldpi/training/output/ResCNN/plots', [
-            'ldpi/training/output/ResCNN/plots/*.pdf'
-        ]),
-    ],
     zip_safe=False,
 )
