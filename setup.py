@@ -6,7 +6,7 @@ setup(
     description="Lightweight Deep Anomaly Detection for Network Traffic",
     long_description=open("README.md").read(),
     url="https://github.com/everton-dematos/srta-ldpi",
-    packages=find_packages(include=["ldpi", "ldpi.training", "sniffer"]),
+    packages=find_packages(include=["ldpi", "ldpi.*", "sniffer"]),
     py_modules=["main", "main_debug", "options", "utils"],
     install_requires=[
         'numpy',
@@ -25,11 +25,11 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires='>=3.11',
-    include_package_data=True, 
+    include_package_data=True,
     package_data={
         "ldpi.training": [
             "output/ResCNN/*.pth"
         ],
     },
-    zip_safe=False, 
+    zip_safe=False,
 )
