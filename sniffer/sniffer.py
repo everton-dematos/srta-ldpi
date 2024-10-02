@@ -12,6 +12,7 @@ from options import SnifferOptions
 from utils import ModuleInterface, SnifferSubscriber, FlowKeyType, Color, get_flow_key, sec_to_ns
 
 from systemd import journal
+import sys
 
 # pcap library: comes from pypcap https://github.com/pynetwork/pypcap (requires sudo apt-get install libpcap-dev)
 
@@ -69,16 +70,28 @@ class Sniffer(ModuleInterface):
         """Core sniffing method that captures packets and processes them."""
         #self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
         try:
-            addresses = ni.ifaddresses(self.args.interface)
-            if ni.AF_INET in addresses and len(addresses[ni.AF_INET]) > 0:
-                self.local_ip = addresses[ni.AF_INET][0]['addr']
+            interface = self.args.interface  
+            if ni.AF_INET in ni.ifaddresses(interface):
+                ip_info = ni.ifaddresses(interface)[ni.AF_INET]
+                if ip_info:
+                    self.local_ip = ip_info[0].get('addr')
+                    journal.send(f"Interface: {interface}, IP Address: {self.local_ip}")
+                else:
+                    journal.send(f"No IPv4 address found for interface {interface}")
+                    raise RuntimeError(f"No IPv4 address found for interface {interface}")
             else:
-                raise ValueError(f"No IPv4 address found for interface {self.args.interface}")
-        except KeyError:
-            raise ValueError(f"Interface {self.args.interface} does not exist or has no IP address")
+                journal.send(f"No IPv4 configuration found for interface {interface}")
+                raise RuntimeError(f"No IPv4 configuration found for interface {interface}")
+        except KeyError as e:
+            journal.send(f"An error occurred while fetching the IP address: {e}")
+            sys.exit(1) 
+        except RuntimeError as e:
+            journal.send(f"Runtime error: {e}")
+            sys.exit(1)  
         except Exception as e:
-            raise RuntimeError(f"An error occurred while fetching the IP address: {str(e)}")
-        
+            journal.send(f"Unexpected error: {e}")
+            sys.exit(1)  
+
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
         sniffer.setfilter(f'not ether broadcast and src not {self.local_ip}')
         print(Color.BOLD + f'Sniffing {self.args.interface} started, ' + Color.ENDC)
