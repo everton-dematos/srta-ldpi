@@ -67,9 +67,18 @@ class Sniffer(ModuleInterface):
     # @abstractmethod
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
-        journal.send(f"Interface: {self.args.interface}")
-        self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
-        journal.send(f"Local_IP: {self.local_ip}")
+        #self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
+        try:
+            addresses = ni.ifaddresses(self.args.interface)
+            if ni.AF_INET in addresses and len(addresses[ni.AF_INET]) > 0:
+                self.local_ip = addresses[ni.AF_INET][0]['addr']
+            else:
+                raise ValueError(f"No IPv4 address found for interface {self.args.interface}")
+        except KeyError:
+            raise ValueError(f"Interface {self.args.interface} does not exist or has no IP address")
+        except Exception as e:
+            raise RuntimeError(f"An error occurred while fetching the IP address: {str(e)}")
+        
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
         sniffer.setfilter(f'not ether broadcast and src not {self.local_ip}')
         print(Color.BOLD + f'Sniffing {self.args.interface} started, ' + Color.ENDC)
