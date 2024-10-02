@@ -65,7 +65,9 @@ class Sniffer(ModuleInterface):
     # @abstractmethod
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
+        print("Interface:", self.args.interface)
         self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
+        print("Local_IP:", self.local_ip)
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
         sniffer.setfilter(f'not ether broadcast and src not {self.local_ip}')
         print(Color.BOLD + f'Sniffing {self.args.interface} started, ' + Color.ENDC)
