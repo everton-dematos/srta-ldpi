@@ -69,6 +69,8 @@ class Sniffer(ModuleInterface):
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
         #self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
+        interfaces_test = ni.interfaces()
+        journal.send(f"LDPI: Available network interfaces: {interfaces_test}")
         try:
             interface = self.args.interface  
             if ni.AF_INET in ni.ifaddresses(interface):
