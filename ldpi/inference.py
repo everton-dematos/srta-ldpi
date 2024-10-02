@@ -55,7 +55,8 @@ class TrainedModel:
         self.hundred_one_threshold: Optional[float] = None
 
         # Load trained model
-        self.store_models_path: str = f'ldpi/training/output/{self.args.model_name}/'
+        base_dir = os.path.dirname(__file__)
+        self.store_models_path = os.path.join(base_dir, 'training', 'output', self.args.model_name)
         self._init_model()
 
         self.chosen_threshold: float = self._initialize_threshold()
