@@ -75,21 +75,21 @@ class Sniffer(ModuleInterface):
                 ip_info = ni.ifaddresses(interface)[ni.AF_INET]
                 if ip_info:
                     self.local_ip = ip_info[0].get('addr')
-                    journal.send(f"Interface: {interface}, IP Address: {self.local_ip}")
+                    journal.send(f"LDPI: Interface: {interface}, IP Address: {self.local_ip}")
                 else:
-                    journal.send(f"No IPv4 address found for interface {interface}")
+                    journal.send(f"LDPI: No IPv4 address found for interface {interface}")
                     raise RuntimeError(f"No IPv4 address found for interface {interface}")
             else:
-                journal.send(f"No IPv4 configuration found for interface {interface}")
+                journal.send(f"LDPI: No IPv4 configuration found for interface {interface}")
                 raise RuntimeError(f"No IPv4 configuration found for interface {interface}")
         except KeyError as e:
-            journal.send(f"An error occurred while fetching the IP address: {e}")
+            journal.send(f"LDPI: An error occurred while fetching the IP address: {e}")
             sys.exit(1) 
         except RuntimeError as e:
-            journal.send(f"Runtime error: {e}")
+            journal.send(f"LDPI: Runtime error: {e}")
             sys.exit(1)  
         except Exception as e:
-            journal.send(f"Unexpected error: {e}")
+            journal.send(f"LDPI: Unexpected error: {e}")
             sys.exit(1)  
 
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
