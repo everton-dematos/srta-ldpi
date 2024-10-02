@@ -11,6 +11,8 @@ from tqdm import tqdm
 from options import SnifferOptions
 from utils import ModuleInterface, SnifferSubscriber, FlowKeyType, Color, get_flow_key, sec_to_ns
 
+from systemd import journal
+
 # pcap library: comes from pypcap https://github.com/pynetwork/pypcap (requires sudo apt-get install libpcap-dev)
 
 protocol_classes = {
@@ -65,6 +67,7 @@ class Sniffer(ModuleInterface):
     # @abstractmethod
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
+        journal.send("Testing logs journal")
         print("Interface:", self.args.interface)
         self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
         print("Local_IP:", self.local_ip)
