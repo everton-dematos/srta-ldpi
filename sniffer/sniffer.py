@@ -71,28 +71,39 @@ class Sniffer(ModuleInterface):
         #self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
         interfaces_test = ni.interfaces()
         journal.send(f"LDPI: Available network interfaces: {interfaces_test}")
+
         try:
             interface = self.args.interface  
+
+            if interface not in interfaces_test:
+                journal.send(f"LDPI: The specified interface '{interface}' is not among the available interfaces: {interfaces_test}")
+                raise RuntimeError(f"Invalid interface: '{interface}' is not available")
+
+            # Check for IPv4 configuration
             if ni.AF_INET in ni.ifaddresses(interface):
                 ip_info = ni.ifaddresses(interface)[ni.AF_INET]
                 if ip_info:
                     self.local_ip = ip_info[0].get('addr')
                     journal.send(f"LDPI: Interface: {interface}, IP Address: {self.local_ip}")
                 else:
-                    journal.send(f"LDPI: No IPv4 address found for interface {interface}")
-                    raise RuntimeError(f"No IPv4 address found for interface {interface}")
+                    journal.send(f"LDPI: No IPv4 address found for interface '{interface}'")
+                    raise RuntimeError(f"No IPv4 address available for interface '{interface}'")
             else:
-                journal.send(f"LDPI: No IPv4 configuration found for interface {interface}")
-                raise RuntimeError(f"No IPv4 configuration found for interface {interface}")
+                journal.send(f"LDPI: No IPv4 configuration found for interface '{interface}'")
+                raise RuntimeError(f"No IPv4 configuration found for interface '{interface}'")
+                
         except KeyError as e:
-            journal.send(f"LDPI: An error occurred while fetching the IP address: {e}")
+            journal.send(f"LDPI: KeyError occurred while fetching IP address for interface '{interface}': {e}")
             sys.exit(1) 
+
         except RuntimeError as e:
             journal.send(f"LDPI: Runtime error: {e}")
             sys.exit(1)  
+
         except Exception as e:
-            journal.send(f"LDPI: Unexpected error: {e}")
-            sys.exit(1)  
+            journal.send(f"LDPI: Unexpected error occurred: {e}")
+            sys.exit(1)
+
 
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
         sniffer.setfilter(f'not ether broadcast and src not {self.local_ip}')
