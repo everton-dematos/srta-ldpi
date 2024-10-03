@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+import socket
 from typing import List, Optional, Tuple, Dict, NoReturn
 
 import dpkt
@@ -69,6 +70,16 @@ class Sniffer(ModuleInterface):
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
         #self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
+        while True:
+            try:
+                socket.create_connection(("8.8.8.8", 53), timeout=2)
+                journal.send("LDPI: Network is available.")
+                break 
+            except (OSError, socket.timeout) as e:
+                journal.send(f"LDPI: Network is unavailable. Retrying in 5 seconds. Error: {e}")
+            
+            time.sleep(5)
+
         interfaces_test = ni.interfaces()
         journal.send(f"LDPI: Available network interfaces: {interfaces_test}")
 
@@ -103,7 +114,6 @@ class Sniffer(ModuleInterface):
         except Exception as e:
             journal.send(f"LDPI: Unexpected error occurred: {e}")
             sys.exit(1)
-
 
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
         sniffer.setfilter(f'not ether broadcast and src not {self.local_ip}')
