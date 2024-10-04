@@ -69,7 +69,6 @@ class Sniffer(ModuleInterface):
     # @abstractmethod
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
-        #self.local_ip = ni.ifaddresses(self.args.interface)[ni.AF_INET][0]['addr']
         while True:
             try:
                 socket.create_connection(("8.8.8.8", 53), timeout=2)

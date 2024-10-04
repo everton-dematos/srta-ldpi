@@ -259,9 +259,12 @@ class LightDeepPacketInspection(SnifferSubscriber):
             if is_anomaly:
                 # If anomaly detected, add the source IP to the blacklist
                 self.black_list.add(key[0])
-                print(Color.FAIL + f'Anomaly detected in flow {flow_key_to_str(key)}, LDPI blacklisted (ignoring packets from): {key[0]}' + Color.ENDC)
+                journal.send(
+                    "LDPI: Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {key[0]}",
+                    PRIORITY="4",  # Warning
+                    SYSLOG_IDENTIFIER="LDPI_Service"
+                )
             else:
-                journal.send("LDPI: Testing logs journal", PRIORITY=journal.LOG_WARNING)
                 print(Color.OKGREEN + f'No anomaly detected in flow {flow_key_to_str(key)}' + Color.ENDC)
 
     def new_packet(self, flow_key: FlowKeyType, protocol: int, timestamp: int, ip: dpkt.ip.IP) -> NoReturn:
