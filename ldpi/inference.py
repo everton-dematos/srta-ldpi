@@ -12,6 +12,7 @@ from options import LDPIOptions
 from utils import FlowKeyType, SnifferSubscriber, Color, flow_key_to_str
 
 from systemd import journal
+import warnings
 
 class TrainedModel:
     """
@@ -264,6 +265,7 @@ class LightDeepPacketInspection(SnifferSubscriber):
                     PRIORITY=4,  # Warning
                     SYSLOG_IDENTIFIER="LDPI_Service"
                 )
+                warnings.warn(f"Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {key[0]}", category=UserWarning)
             else:
                 print(Color.OKGREEN + f'No anomaly detected in flow {flow_key_to_str(key)}' + Color.ENDC)
 
