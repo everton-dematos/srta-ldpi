@@ -104,15 +104,12 @@ class Sniffer(ModuleInterface):
                 
         except KeyError as e:
             journal.send(f"LDPI: KeyError occurred while fetching IP address for interface '{interface}': {e}")
-            sys.exit(1) 
 
         except RuntimeError as e:
             journal.send(f"LDPI: Runtime error: {e}")
-            sys.exit(1)  
 
         except Exception as e:
             journal.send(f"LDPI: Unexpected error occurred: {e}")
-            sys.exit(1)
 
         sniffer = pcap.pcap(name=self.args.interface, promisc=False, immediate=True, timestamp_in_ns=True)
         sniffer.setfilter(f'not ether broadcast and src not {self.local_ip}')
