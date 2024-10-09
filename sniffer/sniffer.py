@@ -335,6 +335,7 @@ class Sniffer(ModuleInterface):
             ip (dpkt.ip.IP): The IP packet.
         """
         for subscriber in self.subscribers:
+            flow_key[4] = protocol
             subscriber.new_packet(flow_key, protocol, timestamp, ip)
 
     def report_teardown(self, flow_key: FlowKeyType, protocol: int) -> NoReturn:

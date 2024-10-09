@@ -7,7 +7,7 @@ from typing import Tuple, Union, Optional, NoReturn
 import dpkt
 
 # Define a type for the flow key
-FlowKeyType = Tuple[bytes, int, bytes, int]  # (src_ip, src_port, dst_ip, dst_port)
+FlowKeyType = Tuple[bytes, int, bytes, int, int]  # (src_ip, src_port, dst_ip, dst_port, protocol)
 
 
 class ModuleInterface(ABC, threading.Thread):
