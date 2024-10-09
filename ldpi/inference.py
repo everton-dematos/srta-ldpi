@@ -9,7 +9,7 @@ import torch
 
 from ldpi.training.preprocessing import anonymize_packet, trim_or_pad_packet
 from options import LDPIOptions
-from utils import FlowKeyType, SnifferSubscriber, Color, flow_key_to_str
+from utils import FlowKeyType, SnifferSubscriber, Color, flow_key_to_str, bytes_to_ip_address
 
 from systemd import journal
 import warnings
@@ -261,7 +261,7 @@ class LightDeepPacketInspection(SnifferSubscriber):
                 # If anomaly detected, add the source IP to the blacklist
                 self.black_list.add(key[0])
                 journal.send(
-                    f"LDPI: Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {key[0]}",
+                    f"LDPI: Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {bytes_to_ip_address(key[0])}",
                     PRIORITY=4  # Warning
                 )
             else:

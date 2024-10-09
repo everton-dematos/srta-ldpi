@@ -196,6 +196,35 @@ def flow_key_to_str(flow_key: tuple) -> tuple:
     value = (inet_to_str(flow_key[0]), flow_key[1], inet_to_str(flow_key[2]), flow_key[3], flow_key[4])
     return value
 
+def bytes_to_ip_address(ip_bytes: bytes) -> str:
+    """
+    Convert a bytes object to an IP address string.
+
+    This function handles both IPv4 and IPv6 addresses. For IPv4, the bytes are converted
+    into the standard dotted-decimal notation (e.g., '192.168.1.1'). For IPv6, the bytes 
+    are converted into the standard hexadecimal colon-separated format (e.g., '2001:0db8::1').
+
+    Args:
+        ip_bytes (bytes): The IP address in its byte representation. It must be either 
+                          4 bytes long (for IPv4) or 16 bytes long (for IPv6).
+
+    Returns:
+        str: The string representation of the IP address. If the input is not valid 
+             (neither 4 nor 16 bytes), it returns "Unknown IP format".
+
+    Example:
+        >>> bytes_to_ip_address(b'\xc0\xa8\x01\x01')
+        '192.168.1.1'
+
+        >>> bytes_to_ip_address(b'\x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+        '2001:0db8::1'
+    """
+    if len(ip_bytes) == 4:  # IPv4
+        return '.'.join(str(b) for b in ip_bytes)
+    elif len(ip_bytes) == 16:  # IPv6
+        return ':'.join(f'{ip_bytes[i]:02x}{ip_bytes[i+1]:02x}' for i in range(0, 16, 2))
+    else:
+        return "Unknown IP format"
 
 def sec_to_ns(seconds: float) -> int:
     """
