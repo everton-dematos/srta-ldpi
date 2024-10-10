@@ -350,7 +350,7 @@ class LightDeepPacketInspection(SnifferSubscriber):
         """
         return (self.flows_tcp, self.checked_tcp) if protocol == 6 else (self.flows_udp, self.checked_udp)
     
-    def block_ip(ip_addr: str) -> NoReturn:
+    def block_ip(self, ip_addr: str) -> NoReturn:
         """
         Adds a rule to the IPTables to drop packets from the specified IP address.
 
@@ -373,7 +373,7 @@ class LightDeepPacketInspection(SnifferSubscriber):
             # Log the failure in case of an error while blocking the IP
             journal.send(f"LDPI: Failed to block IP {ip_addr}: {e}")
 
-    def unblock_ip(ip_addr: str) -> NoReturn:
+    def unblock_ip(self, ip_addr: str) -> NoReturn:
         """
         Removes a rule from the IPTables to allow packets from the specified IP address.
 
