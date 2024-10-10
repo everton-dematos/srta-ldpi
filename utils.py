@@ -7,7 +7,6 @@ from typing import Tuple, Union, Optional, NoReturn
 import dpkt
 from systemd import journal
 import subprocess
-import os
 
 # Define a type for the flow key
 FlowKeyType = Tuple[bytes, int, bytes, int]  # (src_ip, src_port, dst_ip, dst_port)
@@ -305,23 +304,51 @@ def unblock_ip(ip_addr: str) -> NoReturn:
         # Log the failure in case of an error while unblocking the IP
         journal.send(f"LDPI: Failed to unblock IP {ip_addr}: {e}")
 
-def check_gateway():
-    # Use the system's default gateway to check for network availability
+def check_gateway() -> bool:
+    """
+    Checks network availability by testing connectivity to the default gateway.
+
+    This function attempts to find the system's default gateway and then tries to establish
+    a connection to it on port 80 (HTTP). If successful, the network is considered available.
+    The result of the test is logged using the system journal.
+
+    Returns:
+        bool: True if the network is available through the gateway, False otherwise.
+    
+    Raises:
+        OSError: Raised if there is an issue with network connectivity or socket creation.
+        socket.timeout: Raised if the connection attempt to the gateway times out.
+    """
     try:
-        # Try pinging the default gateway (often `192.168.1.1` or use a system command to get it)
-        gateway = os.popen("ip route | grep default | awk '{print $3}'").read().strip()
+        # Use subprocess.run to execute the command and capture the output
+        result = subprocess.run(
+            ["ip", "route", "show", "default"],
+            capture_output=True,
+            text=True
+        )
         
+        # Parse the output to extract the gateway IP
+        if result.returncode == 0:
+            gateway = result.stdout.split()[2].strip()
+        else:
+            journal.send("LDPI: Failed to retrieve default gateway.")
+            return False
+
         if gateway:
+            # If a default gateway is found, try creating a connection to it on port 80 (HTTP).
             socket.create_connection((gateway, 80), timeout=2)
             journal.send("LDPI: Network is available through the gateway.")
             return True
         else:
             journal.send("LDPI: No default gateway found.")
             return False
+    
     except (OSError, socket.timeout) as e:
+        # If an error occurs (e.g., the gateway is unreachable or the connection times out),
+        # log the error and indicate that the network is unavailable.
         journal.send(f"LDPI: Network is unavailable through the gateway. Retrying in 5 seconds. Error: {e}")
         return False
-
+    
 class Dataset(ABC):
     def __init__(self):
         self.path = ''
