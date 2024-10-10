@@ -304,6 +304,9 @@ def unblock_ip(ip_addr: str) -> NoReturn:
         # Log the failure in case of an error while unblocking the IP
         journal.send(f"LDPI: Failed to unblock IP {ip_addr}: {e}")
 
+import subprocess
+import socket
+
 def check_gateway() -> bool:
     """
     Checks network availability by testing connectivity to the default gateway.
@@ -320,29 +323,31 @@ def check_gateway() -> bool:
         socket.timeout: Raised if the connection attempt to the gateway times out.
     """
     try:
-        # Use subprocess.run to execute the command and capture the output
+        # Use subprocess.run to get the default gateway IP directly
         result = subprocess.run(
-            ["/run/current-system/sw/bin/ip", "route", "show", "default"],
+            ["/run/current-system/sw/bin/ip", "route", "|", "grep", "default", "|", "awk", "{print $3}"],
             capture_output=True,
             text=True
         )
-        
-        # Parse the output to extract the gateway IP
+
+        # Check if the command executed successfully
         if result.returncode == 0:
-            gateway = result.stdout.split()[2].strip()
+            # Read the gateway IP from the result
+            gateway = result.stdout.strip()
+
+            if gateway:
+                # If a default gateway is found, try creating a connection to it on port 80 (HTTP).
+                socket.create_connection((gateway, 80), timeout=2)
+                journal.send("LDPI: Network is available through the gateway.")
+                return True
+            else:
+                # If the output is empty, log and return False
+                journal.send("LDPI: No default gateway found.")
+                return False
         else:
             journal.send("LDPI: Failed to retrieve default gateway.")
             return False
 
-        if gateway:
-            # If a default gateway is found, try creating a connection to it on port 80 (HTTP).
-            socket.create_connection((gateway, 80), timeout=2)
-            journal.send("LDPI: Network is available through the gateway.")
-            return True
-        else:
-            journal.send("LDPI: No default gateway found.")
-            return False
-    
     except (OSError, socket.timeout) as e:
         # If an error occurs (e.g., the gateway is unreachable or the connection times out),
         # log the error and indicate that the network is unavailable.
