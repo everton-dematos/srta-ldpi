@@ -293,12 +293,12 @@ def unblock_ip(ip_addr: str) -> NoReturn:
         subprocess.CalledProcessError: Raised if the IPTables command fails.
     """
     try:
-        if ':' in ip_addr:  # Check if it's an IPv6 address
-            # Remove the rule from ip6tables for IPv6 addresses
-            subprocess.run(["/run/current-system/sw/bin/ip6tables", "-D", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+        if ':' in ip_addr:
+            # IPv6 address detected: Use ip6tables to insert a rule at the top of the INPUT chain to drop packets from this IP
+            subprocess.run(["/run/current-system/sw/bin/ip6tables", "-I", "INPUT", "1", "-s", ip_addr, "-j", "DROP"], check=True)
         else:
-            # Remove the rule from iptables for IPv4 addresses
-            subprocess.run(["/run/current-system/sw/bin/iptables", "-D", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+            # IPv4 address detected: Use iptables to insert a rule at the top of the INPUT chain to drop packets from this IP
+            subprocess.run(["/run/current-system/sw/bin/iptables", "-I", "INPUT", "1", "-s", ip_addr, "-j", "DROP"], check=True)
         # Log the successful unblock action
         journal.send(f"LDPI: Unblocked IP: {ip_addr}")
     except subprocess.CalledProcessError as e:
