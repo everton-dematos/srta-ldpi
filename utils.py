@@ -322,7 +322,7 @@ def check_gateway() -> bool:
     try:
         # Use subprocess.run to execute the command and capture the output
         result = subprocess.run(
-            ["ip", "route", "show", "default"],
+            ["/run/current-system/sw/bin/ip", "route", "show", "default"],
             capture_output=True,
             text=True
         )
