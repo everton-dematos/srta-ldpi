@@ -266,7 +266,7 @@ def block_ip(ip_addr: str) -> NoReturn:
     """
     try:
         # Add a rule to IPTables to drop packets from the given IP address
-        subprocess.run(["iptables", "-A", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+        subprocess.run(["/run/current-system/sw/bin/iptables", "-A", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
         # Log the successful block action
         journal.send(f"LDPI: Blocked IP: {ip_addr}")
     except subprocess.CalledProcessError as e:
@@ -289,7 +289,7 @@ def unblock_ip(ip_addr: str) -> NoReturn:
     """
     try:
         # Remove the rule from IPTables that was dropping packets from the given IP address
-        subprocess.run(["iptables", "-D", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+        subprocess.run(["/run/current-system/sw/bin/iptables", "-D", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
         # Log the successful unblock action
         journal.send(f"LDPI: Unblocked IP: {ip_addr}")
     except subprocess.CalledProcessError as e:
