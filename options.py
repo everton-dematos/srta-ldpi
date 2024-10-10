@@ -21,7 +21,7 @@ class SnifferOptions:
     def __init__(self):
         self.dataset_path: str = '../../datasets/TII-SSRC-23/pcap/'
         self.delay: bool = False
-        self.session: bool = True
+        self.session: bool = False
         self.interface: str = 'wlp0s5f0'
         self.timeout: int = 120
         self.cleaning_cycle: int = 60
