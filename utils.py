@@ -7,6 +7,7 @@ from typing import Tuple, Union, Optional, NoReturn
 import dpkt
 from systemd import journal
 import subprocess
+import os
 
 # Define a type for the flow key
 FlowKeyType = Tuple[bytes, int, bytes, int]  # (src_ip, src_port, dst_ip, dst_port)
@@ -303,6 +304,23 @@ def unblock_ip(ip_addr: str) -> NoReturn:
     except subprocess.CalledProcessError as e:
         # Log the failure in case of an error while unblocking the IP
         journal.send(f"LDPI: Failed to unblock IP {ip_addr}: {e}")
+
+def check_gateway():
+    # Use the system's default gateway to check for network availability
+    try:
+        # Try pinging the default gateway (often `192.168.1.1` or use a system command to get it)
+        gateway = os.popen("ip route | grep default | awk '{print $3}'").read().strip()
+        
+        if gateway:
+            socket.create_connection((gateway, 80), timeout=2)
+            journal.send("LDPI: Network is available through the gateway.")
+            return True
+        else:
+            journal.send("LDPI: No default gateway found.")
+            return False
+    except (OSError, socket.timeout) as e:
+        journal.send(f"LDPI: Network is unavailable through the gateway. Retrying in 5 seconds. Error: {e}")
+        return False
 
 class Dataset(ABC):
     def __init__(self):

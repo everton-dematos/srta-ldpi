@@ -10,7 +10,7 @@ import pcap
 from tqdm import tqdm
 
 from options import SnifferOptions
-from utils import ModuleInterface, SnifferSubscriber, FlowKeyType, Color, get_flow_key, sec_to_ns
+from utils import ModuleInterface, SnifferSubscriber, FlowKeyType, Color, get_flow_key, sec_to_ns, check_gateway
 
 from systemd import journal
 import sys
@@ -70,13 +70,8 @@ class Sniffer(ModuleInterface):
     def sniff(self) -> NoReturn:
         """Core sniffing method that captures packets and processes them."""
         while True:
-            try:
-                socket.create_connection(("8.8.8.8", 53), timeout=2)
-                journal.send("LDPI: Network is available.")
-                break 
-            except (OSError, socket.timeout) as e:
-                journal.send(f"LDPI: Network is unavailable. Retrying in 5 seconds. Error: {e}")
-            
+            if check_gateway():
+                break
             time.sleep(5)
 
         interfaces_test = ni.interfaces()
