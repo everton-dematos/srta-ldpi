@@ -12,7 +12,7 @@ from options import LDPIOptions
 from utils import FlowKeyType, SnifferSubscriber, Color, flow_key_to_str, bytes_to_ip_address
 
 from systemd import journal
-import warnings
+import subprocess
 
 class TrainedModel:
     """
@@ -260,11 +260,11 @@ class LightDeepPacketInspection(SnifferSubscriber):
             if is_anomaly:
                 # If anomaly detected, add the source IP to the blacklist
                 self.black_list.add(key[0])
+                self.block_ip(bytes_to_ip_address(key[0]))
                 journal.send(
                     f"LDPI: Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {bytes_to_ip_address(key[0])}. " +
                     f"Source IP: {bytes_to_ip_address(key[0])}, Source Port: {key[1]}, " +
-                    f"Destination IP: {bytes_to_ip_address(key[2])}, Destination Port: {key[3]}",
-                    PRIORITY=4  # Warning
+                    f"Destination IP: {bytes_to_ip_address(key[2])}, Destination Port: {key[3]}"
                 )
             else:
                 print(Color.OKGREEN + f'No anomaly detected in flow {flow_key_to_str(key)}' + Color.ENDC)
@@ -349,5 +349,51 @@ class LightDeepPacketInspection(SnifferSubscriber):
             Tuple[Dict[FlowKeyType, List[np.ndarray]], Set[FlowKeyType]]: The buffers for the specified protocol.
         """
         return (self.flows_tcp, self.checked_tcp) if protocol == 6 else (self.flows_udp, self.checked_udp)
+    
+    def block_ip(ip_addr: str) -> NoReturn:
+        """
+        Adds a rule to the IPTables to drop packets from the specified IP address.
+
+        This function executes an IPTables command that adds a rule to block incoming packets 
+        from a given IP address by appending the rule to the INPUT chain. It logs the result 
+        of the operation using the system journal.
+
+        Args:
+            ip_addr (str): The IP address to be blocked.
+
+        Raises:
+            subprocess.CalledProcessError: Raised if the IPTables command fails.
+        """
+        try:
+            # Add a rule to IPTables to drop packets from the given IP address
+            subprocess.run(["sudo", "iptables", "-A", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+            # Log the successful block action
+            journal.send(f"LDPI: Blocked IP: {ip_addr}")
+        except subprocess.CalledProcessError as e:
+            # Log the failure in case of an error while blocking the IP
+            journal.send(f"LDPI: Failed to block IP {ip_addr}: {e}")
+
+    def unblock_ip(ip_addr: str) -> NoReturn:
+        """
+        Removes a rule from the IPTables to allow packets from the specified IP address.
+
+        This function executes an IPTables command that deletes a rule in the INPUT chain, 
+        allowing packets from a previously blocked IP address. It logs the result of the operation 
+        using the system journal.
+
+        Args:
+            ip_addr (str): The IP address to be unblocked.
+
+        Raises:
+            subprocess.CalledProcessError: Raised if the IPTables command fails.
+        """
+        try:
+            # Remove the rule from IPTables that was dropping packets from the given IP address
+            subprocess.run(["sudo", "iptables", "-D", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+            # Log the successful unblock action
+            journal.send(f"LDPI: Unblocked IP: {ip_addr}")
+        except subprocess.CalledProcessError as e:
+            # Log the failure in case of an error while unblocking the IP
+            journal.send(f"LDPI: Failed to unblock IP {ip_addr}: {e}")
 
 # TODO: add thread that periodically checks for flows that were not queued due to not meeting criteria of minimum amount of packets
