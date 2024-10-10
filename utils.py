@@ -7,6 +7,7 @@ from typing import Tuple, Union, Optional, NoReturn
 import dpkt
 from systemd import journal
 import subprocess
+import socket
 
 # Define a type for the flow key
 FlowKeyType = Tuple[bytes, int, bytes, int]  # (src_ip, src_port, dst_ip, dst_port)
@@ -303,9 +304,6 @@ def unblock_ip(ip_addr: str) -> NoReturn:
     except subprocess.CalledProcessError as e:
         # Log the failure in case of an error while unblocking the IP
         journal.send(f"LDPI: Failed to unblock IP {ip_addr}: {e}")
-
-import subprocess
-import socket
 
 def check_gateway() -> bool:
     """
