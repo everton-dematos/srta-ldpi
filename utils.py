@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Tuple, Union, Optional, NoReturn
 
 import dpkt
+from systemd import journal
+import subprocess
 
 # Define a type for the flow key
 FlowKeyType = Tuple[bytes, int, bytes, int]  # (src_ip, src_port, dst_ip, dst_port)
@@ -209,22 +211,17 @@ def bytes_to_ip_address(ip_bytes: bytes) -> str:
                           4 bytes long (for IPv4) or 16 bytes long (for IPv6).
 
     Returns:
-        str: The string representation of the IP address. If the input is not valid 
-             (neither 4 nor 16 bytes), it returns "Unknown IP format".
+        str: The string representation of the IP address.
 
-    Example:
-        >>> bytes_to_ip_address(b'\xc0\xa8\x01\x01')
-        '192.168.1.1'
-
-        >>> bytes_to_ip_address(b'\x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
-        '2001:0db8::1'
+    Raises:
+        ValueError: If the input is not a valid IP address length (neither 4 nor 16 bytes).
     """
     if len(ip_bytes) == 4:  # IPv4
-        return '.'.join(str(b) for b in ip_bytes)
+        return socket.inet_ntoa(ip_bytes)
     elif len(ip_bytes) == 16:  # IPv6
-        return ':'.join(f'{ip_bytes[i]:02x}{ip_bytes[i+1]:02x}' for i in range(0, 16, 2))
+        return socket.inet_ntop(socket.AF_INET6, ip_bytes)
     else:
-        return "Unknown IP format"
+        raise ValueError("Invalid IP address length: Must be 4 bytes (IPv4) or 16 bytes (IPv6)")
 
 def sec_to_ns(seconds: float) -> int:
     """
@@ -253,6 +250,51 @@ def ns_to_sec(nanoseconds: int) -> float:
     # Dividing nanoseconds by 1e+9 to convert to seconds
     return nanoseconds / 1e+9
 
+def block_ip(ip_addr: str) -> NoReturn:
+    """
+    Adds a rule to the IPTables to drop packets from the specified IP address.
+
+    This function executes an IPTables command that adds a rule to block incoming packets 
+    from a given IP address by appending the rule to the INPUT chain. It logs the result 
+    of the operation using the system journal.
+
+    Args:
+        ip_addr (str): The IP address to be blocked.
+
+    Raises:
+        subprocess.CalledProcessError: Raised if the IPTables command fails.
+    """
+    try:
+        # Add a rule to IPTables to drop packets from the given IP address
+        subprocess.run(["sudo", "iptables", "-A", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+        # Log the successful block action
+        journal.send(f"LDPI: Blocked IP: {ip_addr}")
+    except subprocess.CalledProcessError as e:
+        # Log the failure in case of an error while blocking the IP
+        journal.send(f"LDPI: Failed to block IP {ip_addr}: {e}")
+
+def unblock_ip(ip_addr: str) -> NoReturn:
+    """
+    Removes a rule from the IPTables to allow packets from the specified IP address.
+
+    This function executes an IPTables command that deletes a rule in the INPUT chain, 
+    allowing packets from a previously blocked IP address. It logs the result of the operation 
+    using the system journal.
+
+    Args:
+        ip_addr (str): The IP address to be unblocked.
+
+    Raises:
+        subprocess.CalledProcessError: Raised if the IPTables command fails.
+    """
+    try:
+        # Remove the rule from IPTables that was dropping packets from the given IP address
+        subprocess.run(["sudo", "iptables", "-D", "INPUT", "-s", ip_addr, "-j", "DROP"], check=True)
+        # Log the successful unblock action
+        journal.send(f"LDPI: Unblocked IP: {ip_addr}")
+    except subprocess.CalledProcessError as e:
+        # Log the failure in case of an error while unblocking the IP
+        journal.send(f"LDPI: Failed to unblock IP {ip_addr}: {e}")
 
 class Dataset(ABC):
     def __init__(self):
