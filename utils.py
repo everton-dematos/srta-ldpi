@@ -323,7 +323,8 @@ def check_gateway() -> bool:
     try:
         # Use subprocess.run to get the default gateway IP directly
         result = subprocess.run(
-            ["/run/current-system/sw/bin/ip", "route", "|", "grep", "default", "|", "awk", "{print $3}"],
+            "/run/current-system/sw/bin/ip route | grep default | awk '{print $3}'",
+            shell=True,
             capture_output=True,
             text=True
         )
