@@ -12,6 +12,7 @@ from options import LDPIOptions
 from utils import FlowKeyType, SnifferSubscriber, Color, flow_key_to_str, bytes_to_ip_address, block_ip, unblock_ip
 
 from systemd import journal
+import netifaces as ni
 
 class TrainedModel:
     """
@@ -257,12 +258,24 @@ class LightDeepPacketInspection(SnifferSubscriber):
         # Process each key and corresponding anomaly detection result
         for key, is_anomaly in zip(keys, is_anomaly):
             if is_anomaly:
-                # If anomaly detected, add the source IP to the blacklist
+                # Convert the source IP from bytes to string
+                source_ip = bytes_to_ip_address(key[0])
+
+                # Get the gateway IP using netifaces
+                gateways = ni.gateways()
+                default_gateway = gateways['default'][ni.AF_INET][0] if 'default' in gateways and ni.AF_INET in gateways['default'] else None
+
+                # If the default gateway is found, compare with the source IP
+                if default_gateway and source_ip == default_gateway:
+                    journal.send(f"LDPI: Detected anomaly from the gateway {source_ip}, but will not block it.")
+                    continue  # Skip blocking the gateway IP
+
+                # If the source IP is not the gateway, proceed to block
                 self.black_list.add(key[0])
-                block_ip(bytes_to_ip_address(key[0]))
+                block_ip(source_ip)
                 journal.send(
-                    f"LDPI: Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {bytes_to_ip_address(key[0])}. " +
-                    f"Source IP: {bytes_to_ip_address(key[0])}, Source Port: {key[1]}, " +
+                    f"LDPI: Anomaly detected in flow {flow_key_to_str(key)}, blacklisted IP: {source_ip}. " +
+                    f"Source IP: {source_ip}, Source Port: {key[1]}, " +
                     f"Destination IP: {bytes_to_ip_address(key[2])}, Destination Port: {key[3]}"
                 )
             else:
