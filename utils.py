@@ -8,6 +8,7 @@ import dpkt
 from systemd import journal
 import subprocess
 import socket
+import netifaces as ni
 
 # Define a type for the flow key
 FlowKeyType = Tuple[bytes, int, bytes, int]  # (src_ip, src_port, dst_ip, dst_port)
@@ -309,49 +310,41 @@ def check_gateway() -> bool:
     """
     Checks network availability by testing connectivity to the default gateway.
 
-    This function attempts to find the system's default gateway and then tries to establish
-    a connection to it on port 80 (HTTP). If successful, the network is considered available.
+    This function uses the `netifaces` library to retrieve the system's default gateway.
+    It then attempts to establish a connection to the default gateway on port 80 (HTTP).
+    If the connection is successful, the network is considered available.
     The result of the test is logged using the system journal.
 
     Returns:
         bool: True if the network is available through the gateway, False otherwise.
     
     Raises:
-        OSError: Raised if there is an issue with network connectivity or socket creation.
-        socket.timeout: Raised if the connection attempt to the gateway times out.
+        Exception: Captures any exceptions related to network connectivity or socket creation.
     """
     try:
-        # Use subprocess.run to get the default gateway IP directly
-        result = subprocess.run(
-            "/run/current-system/sw/bin/ip route | grep default | awk '{print $3}'",
-            shell=True,
-            capture_output=True,
-            text=True
-        )
+        # Use netifaces to retrieve the system's gateway information
+        gateways = ni.gateways()
 
-        # Check if the command executed successfully
-        if result.returncode == 0:
-            # Read the gateway IP from the result
-            gateway = result.stdout.strip()
+        # Extract the default gateway for IPv4 (AF_INET).
+        default_gateway = gateways['default'][ni.AF_INET][0]
 
-            if gateway:
-                # If a default gateway is found, try creating a connection to it on port 80 (HTTP).
-                socket.create_connection((gateway, 80), timeout=2)
-                journal.send("LDPI: Network is available through the gateway.")
-                return True
-            else:
-                # If the output is empty, log and return False
-                journal.send("LDPI: No default gateway found.")
-                return False
+        if default_gateway:
+            # If a default gateway is found, try creating a connection to it on port 80 (HTTP).
+            socket.create_connection((default_gateway, 80), timeout=2)
+            
+            # Log the success message with the default gateway address.
+            journal.send(f"LDPI: Network is available through the gateway: {default_gateway}")
+            return True
         else:
-            journal.send("LDPI: Failed to retrieve default gateway.")
+            # If no default gateway is found, log a failure message.
+            journal.send("LDPI: No default gateway found.")
             return False
 
-    except (OSError, socket.timeout) as e:
-        # If an error occurs (e.g., the gateway is unreachable or the connection times out),
-        # log the error and indicate that the network is unavailable.
-        journal.send(f"LDPI: Network is unavailable through the gateway. Retrying in 5 seconds. Error: {e}")
+    except Exception as e:
+        # If an error occurs (such as a connection timeout or unreachable gateway),
+        journal.send(f"LDPI: Network is unavailable. Retrying in 5 seconds. Error: {e}")
         return False
+
     
 class Dataset(ABC):
     def __init__(self):
